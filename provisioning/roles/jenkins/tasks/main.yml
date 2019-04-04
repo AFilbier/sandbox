@@ -1,0 +1,92 @@
+---
+
+- include_vars: secrets.yml
+
+- name: Install pip3
+  apt:
+    update_cache: yes
+    pkg:
+      - python-setuptools
+      - python3-pip
+
+- name: Install Docker module for Python 3
+  pip:
+    executable: pip3
+    name: docker
+
+- name: Pull official Jenkins image
+  docker_image:
+    name: "{{ jenkins_image }}"
+    state: present
+
+# Create a custom Jenkins image with additional plugins
+- name: Copy customized Dockerfile 
+  template: 
+    src: Dockerfile 
+    dest: "{{ vagrant_home }}"
+    owner: vagrant 
+    group: docker 
+    mode: 0644
+
+#docker image build -t jenkins_jcasc .
+- name: Build Jenkins JCasC image
+  docker_image:
+    path: "{{ vagrant_home }}"
+    name: "{{ jcasc_name }}"
+
+- name: Create Jenkins container
+  docker_container:
+    detach: yes
+    name: Jenkins_server
+    image: "{{ jcasc_name }}" 
+    state: started
+    published_ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - /var/jenkins_home
+    env:
+      CASC_JENKINS_CONFIG: "https://raw.githubusercontent.com/AFilbier/bitbar/master/jenkins.yaml"
+      ACC: "{{ admin_acc }}"
+      PASS: "{{ admin_pass }}"
+      SPASS: "{{ sys_pass }}"
+
+- name: Install Java for Jenkins CLI
+  apt: pkg=default-jre update_cache=yes
+
+# To make sure jenkins can actually initialize before we attempt to download plugin from it
+- pause:
+    minutes: 1
+
+# Obviously fail if Jenkins container is not running
+- name: Download CLI client from Jenkins server 
+  get_url:
+    url: http://localhost:8080/jnlpJars/jenkins-cli.jar
+    dest: /usr/local/bin/jenkins-cli
+    mode: 0755
+
+# - name: Copy CLI job script 
+#   template: 
+#     src: create_job.sh 
+#     dest: "{{ vagrant_home }}"
+#     owner: vagrant 
+#     mode: 0755
+
+# - name: Copy job template
+#   copy:
+#     src: job.xml
+#     dest: "{{ vagrant_home }}"
+#     owner: vagrant
+#     mode: 0644
+
+# # I'm not a fan of shell, but it gets the job done
+# - name: Create Jenkins job
+#   shell: "{{ vagrant_home }}/create_job.sh" 
+
+# - name: Copy cron job 
+#   template: 
+#     src: jenkins_job 
+#     dest: /etc/cron.d
+#     owner: root 
+#     group: root 
+#     mode: 0644

@@ -1,0 +1,8 @@
+vagrant_image: "xenial"
+vagrant_user: "vagrant"
+os: "Linux"
+architecture: "x86_64"
+
+ansible_python_interpreter: "/usr/bin/python3"
+vagrant_home: "/home/vagrant"
+
